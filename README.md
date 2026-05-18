@@ -1,7 +1,5 @@
 # Lukupäiväkirja
 
-## Testi
-
 Web-pohjainen lukupäiväkirjasovellus, jossa voit tallentaa lukemasi kirjat, lisätä kuvia ja kirjoittaa arvioita.
 
 ## 🎯 Ominaisuudet
@@ -23,8 +21,9 @@ Web-pohjainen lukupäiväkirjasovellus, jossa voit tallentaa lukemasi kirjat, li
 
 - Node.js
 - Express
-- SQLite (tuotannossa voidaan vaihtaa Azure SQL:ään)
+- SQLite (kehitys) / PostgreSQL (tuotanto - Supabase, Azure, Render)
 - Multer (kuvien lataus)
+- Sequelize ORM (tietokanta-adapteri)
 
 ## 📦 Asennus ja käyttö paikallisesti
 
@@ -66,6 +65,98 @@ Frontend käynnistyy osoitteeseen: http://localhost:3000
 Sovellus avautuu automaattisesti selaimessa!
 
 ## 🚀 Julkaisu pilvipalveluun
+
+### ☁️ Supabase PostgreSQL -tietokanta
+
+Sovellus tukee Supabase PostgreSQL-tietokantaa. Tämä on suositeltava vaihtoehto, sillä Supabase tarjoaa:
+
+- ✅ **Ilmainen PostgreSQL-tietokanta** (500 MB, 2 GB siirto/kk)
+- ✅ **Ei luottokorttia tarvita**
+- ✅ **Automaattiset backupit**
+- ✅ **Graafinen käyttöliittymä** tietokannan hallintaan
+- ✅ **RESTful API** (jos haluat laajentaa myöhemmin)
+
+#### 1. Luo Supabase-projekti
+
+1. Mene osoitteeseen: https://supabase.com
+2. Kirjaudu sisään (GitHub, Google tai sähköpostilla)
+3. Klikkaa **"New project"**
+4. Täytä tiedot:
+   - **Name:** Lukupaivakirja
+   - **Database Password:** Keksi vahva salasana (tallenna talteen!)
+   - **Region:** Europe (Helsinki tai Frankfurt)
+   - **Pricing Plan:** Free
+5. Klikkaa **"Create new project"** (kestää ~2 minuuttia)
+
+#### 2. Luo tietokannan taulut
+
+1. Siirry projektin **SQL Editor** -välilehdelle (vasemmasta valikosta)
+2. Klikkaa **"New query"**
+3. Kopioi ja liitä sisältö tiedostosta `backend/supabase-schema.sql`
+4. Klikkaa **"Run"** (tai paina Cmd/Ctrl + Enter)
+5. Näet viestin: "Success. No rows returned"
+
+#### 3. Hae yhteysosoite (Connection String)
+
+1. Siirry **Project Settings** (hammasratas-kuvake vasemmassa palkissa)
+2. Valitse **Database** vasemmasta valikosta
+3. Vieritä alas kohtaan **"Connection string"**
+4. Valitse **"URI"** -välilehti
+5. **TÄRKEÄÄ:** Valitse **"Use connection pooling"** ja **"Transaction"** mode
+6. Kopioi connection string, joka näyttää tältä:
+   ```
+   postgresql://postgres.[ref]:[password]@aws-0-eu-central-1.pooler.supabase.com:6543/postgres
+   ```
+7. Korvaa `[password]` kohdassa aiemmin luomallasi salasanalla
+
+#### 4. Aseta ympäristömuuttuja
+
+**Paikalliseen kehitykseen:**
+
+Avaa `backend/.env` tiedosto ja päivitä:
+
+```bash
+NODE_ENV=production
+POSTGRESQL_CONNECTION_STRING=postgresql://postgres.[YOUR-REF]:[YOUR-PASSWORD]@aws-0-eu-central-1.pooler.supabase.com:6543/postgres
+```
+
+**Tuotantoon (esim. Render):**
+
+Lisää ympäristömuuttuja web serviceen:
+- **Key:** `POSTGRESQL_CONNECTION_STRING`
+- **Value:** Connection string Supabasesta
+
+#### 5. Testaa yhteys
+
+Käynnistä backend:
+\`\`\`bash
+cd backend
+npm start
+\`\`\`
+
+Näet lokissa:
+```
+Using cloud database (Azure SQL/PostgreSQL)
+Database connection established successfully
+Database tables synchronized
+Server running on port 3001
+```
+
+#### 6. Tarkista tietokanta
+
+Supabase **Table Editor** -välilehdellä:
+- Näet `books` taulun
+- Voit lisätä, muokata ja poistaa rivejä suoraan
+- Näet kaikki sarakkeet: id, title, author, review, image_path, created_at
+
+#### Vinkkejä:
+
+- 📊 **Table Editor:** Hallinnoi dataa visuaalisesti
+- 🔍 **SQL Editor:** Aja SQL-kyselyitä suoraan
+- 📈 **Database Usage:** Seuraa tietokannan käyttöä (Reports)
+- 🔒 **Row Level Security (RLS):** Tällä hetkellä ei käytössä (voit ottaa käyttöön myöhemmin)
+
+---
 
 ### ⭐ Suositeltu: Render (Helpoin!)
 
