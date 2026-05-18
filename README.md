@@ -8,7 +8,7 @@ Web-pohjainen lukupäiväkirjasovellus, jossa voit tallentaa lukemasi kirjat, li
 - 📸 Kirjan kansikuvan lataus
 - ✍️ Kirjan nimen, kirjailijan ja arvion tallentaminen
 - 📱 Responsiivinen ja moderni käyttöliittymä
-- ☁️ Valmis julkaistavaksi Azure-ympäristöön
+- ☁️ Valmis julkaistavaksi pilveen (Render, Azure, jne.)
 
 ## 🛠️ Teknologiat
 
@@ -63,15 +63,45 @@ Frontend käynnistyy osoitteeseen: http://localhost:3000
 
 Sovellus avautuu automaattisesti selaimessa!
 
-## 🚀 Azure-julkaisu
+## 🚀 Julkaisu pilvipalveluun
 
-### TÄRKEÄÄ: Tietokanta ensin!
+### ⭐ Suositeltu: Render (Helpoin!)
+
+**Render on PALJON helpompi kuin Azure!** Ilmainen tier, ei luottokorttia, automaattinen deployment.
+
+📘 **Katso yksityiskohtaiset ohjeet:** [RENDER_DEPLOYMENT.md](RENDER_DEPLOYMENT.md)  
+⚡ **Pika-aloitus:** [RENDER_QUICKSTART.md](RENDER_QUICKSTART.md)
+
+**Miksi Render?**
+
+- ✅ Täysin ilmainen (backend + frontend + PostgreSQL)
+- ✅ Ei luottokorttia vaadita
+- ✅ ~20 minuuttia setupiin (vs. Azure 2-4h)
+- ✅ Automaattinen deployment GitLabista
+- ✅ HTTPS automaattisesti
+
+**Pika-askeleet:**
+
+1. Luo tili: https://render.com
+2. Luo PostgreSQL-tietokanta (FREE)
+3. Luo Backend Web Service (FREE)
+4. Luo Frontend Static Site (FREE)
+5. Valmis! 🎉
+
+---
+
+### Vaihtoehtoinen: Azure-julkaisu
+
+Jos haluat käyttää Azurea (monimutkaisempi, vaatii luottokortin):
+
+#### TÄRKEÄÄ: Tietokanta ensin!
 
 SQLite ei toimi tuotannossa Azureen. **Luo ensin Azure SQL Database:**
 
 📘 **Katso yksityiskohtaiset ohjeet:** [AZURE_DATABASE.md](AZURE_DATABASE.md)
 
 **Nopea yhteenveto:**
+
 ```bash
 # 1. Luo Azure SQL Database
 az sql server create --name lukupaivakirja-sql --resource-group lukupaivakirja-rg \
@@ -87,6 +117,7 @@ az webapp config appsettings set --name lukupaivakirja-backend \
 ```
 
 **Sovellus tukee automaattisesti:**
+
 - ✅ SQLite (paikallinen kehitys)
 - ✅ Azure SQL Database (tuotanto)
 - ✅ PostgreSQL (tuotanto)
@@ -223,20 +254,27 @@ Backend on jo määritetty hyväksymään CORS-pyynnöt. Tuotannossa voit rajoit
 
 ## 🔧 Ympäristömuuttujat
 
-**Backend (.env):**
-\`\`\`
+**Backend (paikallinen kehitys):**
+
+```
 PORT=3001
-\`\`\`
+```
 
-**Frontend (.env):**
-\`\`\`
+**Frontend (paikallinen kehitys):**
+
+```
 REACT_APP_API_URL=http://localhost:3001
-\`\`\`
+```
 
-Tuotannossa Frontend tarvitsee:
-\`\`\`
-REACT_APP_API_URL=https://your-backend.azurewebsites.net
-\`\`\`
+**Tuotanto (Render):**
+
+- Backend: `DATABASE_URL=postgresql://...` (automaattinen Renderistä)
+- Frontend: `REACT_APP_API_URL=https://your-backend.onrender.com`
+
+**Tuotanto (Azure):**
+
+- Backend: `AZURE_SQL_CONNECTION_STRING` tai `POSTGRESQL_CONNECTION_STRING`
+- Frontend: `REACT_APP_API_URL=https://your-backend.azurewebsites.net`
 
 ## 📝 API-dokumentaatio
 
@@ -306,9 +344,12 @@ MIT
 ## 📚 Dokumentaatio
 
 - [README.md](README.md) - Pääohje
-- [QUICKSTART.md](QUICKSTART.md) - Pika-aloitus
-- **[AZURE_DATABASE.md](AZURE_DATABASE.md) - Azure-tietokanta (PAKOLLINEN tuotantoon!)**
-- [AZURE_DEPLOYMENT.md](AZURE_DEPLOYMENT.md) - Azure-julkaisu
+- [QUICKSTART.md](QUICKSTART.md) - Pika-aloitus paikalliseen kehitykseen
+- **[RENDER_DEPLOYMENT.md](RENDER_DEPLOYMENT.md) - Render-julkaisu (SUOSITELTU!)**
+- **[RENDER_QUICKSTART.md](RENDER_QUICKSTART.md) - Render pika-aloitus**
+- [AZURE_DEPLOYMENT.md](AZURE_DEPLOYMENT.md) - Azure-julkaisu (vaihtoehtoinen)
+- [AZURE_DATABASE.md](AZURE_DATABASE.md) - Azure-tietokanta
+- [ILMAINEN_TIETOKANTA.md](ILMAINEN_TIETOKANTA.md) - Ilmaiset tietokantavaihtoehdot
 
 ## 🤝 Tuki
 
@@ -320,9 +361,11 @@ Jos kohtaat ongelmia:
 
 ## 🔮 Tulevaisuuden parannukset
 
-- [ ] Käyttäjän autentikointi (Azure AD B2C)
+- [ ] Käyttäjän autentikointi
 - [ ] Kirjojen suodatus ja hakutoiminto
-- [ ] Tähtiarvostelut
+- [ ] Tähtiarvostelut (1-5 tähteä)
 - [ ] Kirjojen jakaminen sosiaalisessa mediassa
 - [ ] PWA-tuki (offline-toiminnallisuus)
 - [ ] Dark mode
+- [ ] Kirjojen vienti CSV/PDF-muodossa
+- [ ] Lukutilastot ja graafit
