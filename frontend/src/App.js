@@ -3,7 +3,7 @@ import "./App.css";
 import BookForm from "./components/BookForm";
 import BookList from "./components/BookList";
 
-const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3001";
+const API_URL = process.env.REACT_APP_API_URL;
 
 function App() {
   const [books, setBooks] = useState([]);
