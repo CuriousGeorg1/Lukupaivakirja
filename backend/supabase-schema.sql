@@ -14,9 +14,19 @@ CREATE TABLE IF NOT EXISTS books (
   author VARCHAR(255) NOT NULL,
   review TEXT,
   image_path VARCHAR(500),
-  genre_id INTEGER REFERENCES genres(id) ON DELETE SET NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Lisää genre_id-sarake jos se puuttuu (olemassa oleville tauluille)
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'books' AND column_name = 'genre_id'
+  ) THEN
+    ALTER TABLE books ADD COLUMN genre_id INTEGER REFERENCES genres(id) ON DELETE SET NULL;
+  END IF;
+END $$;
 
 -- Lisää indeksit suorituskyvyn parantamiseksi
 CREATE INDEX IF NOT EXISTS idx_books_created_at ON books(created_at DESC);
@@ -51,7 +61,9 @@ COMMENT ON COLUMN books.image_path IS 'Polku kirjan kansikuvaan';
 COMMENT ON COLUMN books.genre_id IS 'Viittaus kategorian ID:hen (1:N-suhde)';
 COMMENT ON COLUMN books.created_at IS 'Kirjan lisäysaika';
 
--- Näytä taulujen rakenteet
+-- Schema created successfully!
+-- You can verify the tables by running this query separately:
+/*
 SELECT 
   'genres' as table_name,
   column_name, 
@@ -73,3 +85,4 @@ SELECT
 FROM information_schema.columns
 WHERE table_name = 'books'
 ORDER BY ordinal_position;
+*/
