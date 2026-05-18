@@ -62,6 +62,32 @@ const upload = multer({
 
 // API Routes
 
+// Genre endpoints
+app.get("/api/genres", async (req, res) => {
+  try {
+    const genres = await dbAdapter.getAllGenres();
+    res.json(genres);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/genres", async (req, res) => {
+  const { name } = req.body;
+
+  if (!name || !name.trim()) {
+    res.status(400).json({ error: "Genre name is required" });
+    return;
+  }
+
+  try {
+    const genre = await dbAdapter.createGenre(name.trim());
+    res.status(201).json(genre);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Get all books
 app.get("/api/books", async (req, res) => {
   try {
@@ -88,7 +114,7 @@ app.get("/api/books/:id", async (req, res) => {
 
 // Add new book
 app.post("/api/books", upload.single("image"), async (req, res) => {
-  const { title, author, review } = req.body;
+  const { title, author, review, genre_id } = req.body;
   const imagePath = req.file ? `/uploads/${req.file.filename}` : null;
 
   if (!title || !author) {
@@ -100,7 +126,8 @@ app.post("/api/books", upload.single("image"), async (req, res) => {
   }
 
   try {
-    const book = await dbAdapter.createBook(title, author, review, imagePath);
+    const genreId = genre_id ? parseInt(genre_id) : null;
+    const book = await dbAdapter.createBook(title, author, review, imagePath, genreId);
     res.status(201).json(book);
   } catch (err) {
     if (req.file) {
@@ -112,7 +139,7 @@ app.post("/api/books", upload.single("image"), async (req, res) => {
 
 // Update book
 app.put("/api/books/:id", upload.single("image"), async (req, res) => {
-  const { title, author, review } = req.body;
+  const { title, author, review, genre_id } = req.body;
   const bookId = req.params.id;
 
   try {
@@ -127,12 +154,15 @@ app.put("/api/books/:id", upload.single("image"), async (req, res) => {
       ? `/uploads/${req.file.filename}`
       : oldImagePath;
 
+    const genreId = genre_id ? parseInt(genre_id) : existingBook.genre_id;
+
     const updatedBook = await dbAdapter.updateBook(
       bookId,
       title,
       author,
       review,
       newImagePath,
+      genreId,
     );
 
     // Delete old image if a new one was uploaded
@@ -187,8 +217,8 @@ app.get("/api/health", (req, res) => {
 // Initialize database and start server
 async function startServer() {
   try {
-    const { db, Book } = await initializeDatabase();
-    dbAdapter = new DatabaseAdapter(db, Book);
+    const { db, Book, Genre } = await initializeDatabase();
+    dbAdapter = new DatabaseAdapter(db, Book, Genre);
     console.log("Database initialized successfully");
 
     // Start server after database is ready

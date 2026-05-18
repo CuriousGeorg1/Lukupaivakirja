@@ -7,13 +7,26 @@ const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3001";
 
 function App() {
   const [books, setBooks] = useState([]);
+  const [genres, setGenres] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [editingBook, setEditingBook] = useState(null);
 
   useEffect(() => {
     fetchBooks();
+    fetchGenres();
   }, []);
+
+  const fetchGenres = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/genres`);
+      if (!response.ok) throw new Error("Virhe kategorioiden haussa");
+      const data = await response.json();
+      setGenres(data);
+    } catch (err) {
+      console.error("Error fetching genres:", err);
+    }
+  };
 
   const fetchBooks = async () => {
     try {
@@ -104,6 +117,7 @@ function App() {
           onSubmit={editingBook ? handleUpdateBook : handleAddBook}
           editingBook={editingBook}
           onCancel={handleCancelEdit}
+          genres={genres}
         />
 
         {loading ? (

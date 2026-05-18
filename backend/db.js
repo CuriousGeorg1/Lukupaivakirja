@@ -50,6 +50,27 @@ async function initializeDatabase() {
       await sequelize.authenticate();
       console.log("Database connection established successfully");
 
+      // Define Genre model
+      const Genre = sequelize.define(
+        "Genre",
+        {
+          id: {
+            type: Sequelize.INTEGER,
+            primaryKey: true,
+            autoIncrement: true,
+          },
+          name: {
+            type: Sequelize.STRING,
+            allowNull: false,
+            unique: true,
+          },
+        },
+        {
+          tableName: "genres",
+          timestamps: false,
+        },
+      );
+
       // Define Book model
       const Book = sequelize.define(
         "Book",
@@ -75,6 +96,14 @@ async function initializeDatabase() {
             type: Sequelize.STRING,
             allowNull: true,
           },
+          genre_id: {
+            type: Sequelize.INTEGER,
+            allowNull: true,
+            references: {
+              model: Genre,
+              key: "id",
+            },
+          },
         },
         {
           tableName: "books",
@@ -84,11 +113,33 @@ async function initializeDatabase() {
         },
       );
 
+      // Define relationships (1:N - One genre has many books)
+      Genre.hasMany(Book, { foreignKey: "genre_id" });
+      Book.belongsTo(Genre, { foreignKey: "genre_id" });
+
       // Sync database (create tables if they don't exist, but don't alter existing ones)
       await sequelize.sync({ alter: false });
       console.log("Database tables synchronized");
 
-      return { sequelize, Book };
+      // Insert default genres if table is empty
+      const genreCount = await Genre.count();
+      if (genreCount === 0) {
+        await Genre.bulkCreate([
+          { name: "Fiktio" },
+          { name: "Tietokirja" },
+          { name: "Fantasia" },
+          { name: "Tiede" },
+          { name: "Historia" },
+          { name: "Biografia" },
+          { name: "Romantiikka" },
+          { name: "Jännitys" },
+          { name: "Scifi" },
+          { name: "Muu" },
+        ]);
+        console.log("Default genres created");
+      }
+
+      return { sequelize, Book, Genre };
     } catch (error) {
       console.error("Unable to connect to database:", error);
       throw error;
@@ -105,7 +156,7 @@ async function initializeDatabase() {
         } else {
           console.log("Connected to SQLite database");
           initializeSQLite()
-            .then(() => resolve({ db, sequelize: null, Book: null }))
+            .then(() => resolve({ db, sequelize: null, Book: null, Genre: null }))
             .catch(reject);
         }
       });
@@ -115,25 +166,80 @@ async function initializeDatabase() {
 
 function initializeSQLite() {
   return new Promise((resolve, reject) => {
+    // Create genres table first
     db.run(
       `
+      CREATE TABLE IF NOT EXISTS genres (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE
+      )
+    `,
+      (err) => {
+        if (err) {
+          console.error("Error creating genres table:", err.message);
+          reject(err);
+          return;
+        }
+        console.log("Genres table ready");
+
+        // Create books table with foreign key to genres
+        db.run(
+          `
       CREATE TABLE IF NOT EXISTS books (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         title TEXT NOT NULL,
         author TEXT NOT NULL,
         review TEXT,
         image_path TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        genre_id INTEGER,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (genre_id) REFERENCES genres(id)
       )
     `,
-      (err) => {
-        if (err) {
-          console.error("Error creating table:", err.message);
-          reject(err);
-        } else {
-          console.log("Books table ready");
-          resolve();
-        }
+          (err) => {
+            if (err) {
+              console.error("Error creating books table:", err.message);
+              reject(err);
+              return;
+            }
+            console.log("Books table ready");
+
+            // Insert default genres if table is empty
+            db.get("SELECT COUNT(*) as count FROM genres", [], (err, row) => {
+              if (err) {
+                reject(err);
+                return;
+              }
+
+              if (row.count === 0) {
+                const genres = [
+                  "Fiktio",
+                  "Tietokirja",
+                  "Fantasia",
+                  "Tiede",
+                  "Historia",
+                  "Biografia",
+                  "Romantiikka",
+                  "Jännitys",
+                  "Scifi",
+                  "Muu",
+                ];
+                const stmt = db.prepare("INSERT INTO genres (name) VALUES (?)");
+                genres.forEach((genre) => stmt.run(genre));
+                stmt.finalize((err) => {
+                  if (err) {
+                    reject(err);
+                  } else {
+                    console.log("Default genres created");
+                    resolve();
+                  }
+                });
+              } else {
+                resolve();
+              }
+            });
+          },
+        );
       },
     );
   });
@@ -141,23 +247,86 @@ function initializeSQLite() {
 
 // Database operations abstraction
 class DatabaseAdapter {
-  constructor(db, Book) {
+  constructor(db, Book, Genre) {
     this.db = db;
     this.Book = Book;
+    this.Genre = Genre;
     this.useSequelize = !!Book;
+  }
+
+  async getAllGenres() {
+    if (this.useSequelize) {
+      const genres = await this.Genre.findAll({
+        order: [["name", "ASC"]],
+        raw: true,
+      });
+      return genres;
+    } else {
+      return new Promise((resolve, reject) => {
+        this.db.all(
+          "SELECT * FROM genres ORDER BY name ASC",
+          [],
+          (err, rows) => {
+            if (err) reject(err);
+            else resolve(rows);
+          },
+        );
+      });
+    }
+  }
+
+  async getGenreById(id) {
+    if (this.useSequelize) {
+      const genre = await this.Genre.findByPk(id, { raw: true });
+      return genre;
+    } else {
+      return new Promise((resolve, reject) => {
+        this.db.get("SELECT * FROM genres WHERE id = ?", [id], (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        });
+      });
+    }
+  }
+
+  async createGenre(name) {
+    if (this.useSequelize) {
+      const genre = await this.Genre.create({ name });
+      return genre.get({ plain: true });
+    } else {
+      return new Promise((resolve, reject) => {
+        this.db.run(
+          "INSERT INTO genres (name) VALUES (?)",
+          [name],
+          function (err) {
+            if (err) reject(err);
+            else resolve({ id: this.lastID, name });
+          },
+        );
+      });
+    }
   }
 
   async getAllBooks() {
     if (this.useSequelize) {
       const books = await this.Book.findAll({
+        include: [{ model: this.Genre, attributes: ["id", "name"] }],
         order: [["created_at", "DESC"]],
-        raw: true,
       });
-      return books;
+      return books.map((book) => {
+        const bookData = book.get({ plain: true });
+        return {
+          ...bookData,
+          genre_name: bookData.Genre ? bookData.Genre.name : null,
+        };
+      });
     } else {
       return new Promise((resolve, reject) => {
         this.db.all(
-          "SELECT * FROM books ORDER BY created_at DESC",
+          `SELECT books.*, genres.name as genre_name 
+           FROM books 
+           LEFT JOIN genres ON books.genre_id = genres.id 
+           ORDER BY books.created_at DESC`,
           [],
           (err, rows) => {
             if (err) reject(err);
@@ -170,32 +339,47 @@ class DatabaseAdapter {
 
   async getBookById(id) {
     if (this.useSequelize) {
-      const book = await this.Book.findByPk(id, { raw: true });
-      return book;
+      const book = await this.Book.findByPk(id, {
+        include: [{ model: this.Genre, attributes: ["id", "name"] }],
+      });
+      if (!book) return null;
+      const bookData = book.get({ plain: true });
+      return {
+        ...bookData,
+        genre_name: bookData.Genre ? bookData.Genre.name : null,
+      };
     } else {
       return new Promise((resolve, reject) => {
-        this.db.get("SELECT * FROM books WHERE id = ?", [id], (err, row) => {
-          if (err) reject(err);
-          else resolve(row);
-        });
+        this.db.get(
+          `SELECT books.*, genres.name as genre_name 
+           FROM books 
+           LEFT JOIN genres ON books.genre_id = genres.id 
+           WHERE books.id = ?`,
+          [id],
+          (err, row) => {
+            if (err) reject(err);
+            else resolve(row);
+          },
+        );
       });
     }
   }
 
-  async createBook(title, author, review, imagePath) {
+  async createBook(title, author, review, imagePath, genreId) {
     if (this.useSequelize) {
       const book = await this.Book.create({
         title,
         author,
         review,
         image_path: imagePath,
+        genre_id: genreId,
       });
       return book.get({ plain: true });
     } else {
       return new Promise((resolve, reject) => {
         this.db.run(
-          "INSERT INTO books (title, author, review, image_path) VALUES (?, ?, ?, ?)",
-          [title, author, review, imagePath],
+          "INSERT INTO books (title, author, review, image_path, genre_id) VALUES (?, ?, ?, ?, ?)",
+          [title, author, review, imagePath, genreId],
           function (err) {
             if (err) reject(err);
             else
@@ -205,6 +389,7 @@ class DatabaseAdapter {
                 author,
                 review,
                 image_path: imagePath,
+                genre_id: genreId,
               });
           },
         );
@@ -212,21 +397,21 @@ class DatabaseAdapter {
     }
   }
 
-  async updateBook(id, title, author, review, imagePath) {
+  async updateBook(id, title, author, review, imagePath, genreId) {
     if (this.useSequelize) {
       await this.Book.update(
-        { title, author, review, image_path: imagePath },
+        { title, author, review, image_path: imagePath, genre_id: genreId },
         { where: { id } },
       );
-      return { id, title, author, review, image_path: imagePath };
+      return { id, title, author, review, image_path: imagePath, genre_id: genreId };
     } else {
       return new Promise((resolve, reject) => {
         this.db.run(
-          "UPDATE books SET title = ?, author = ?, review = ?, image_path = ? WHERE id = ?",
-          [title, author, review, imagePath, id],
+          "UPDATE books SET title = ?, author = ?, review = ?, image_path = ?, genre_id = ? WHERE id = ?",
+          [title, author, review, imagePath, genreId, id],
           (err) => {
             if (err) reject(err);
-            else resolve({ id, title, author, review, image_path: imagePath });
+            else resolve({ id, title, author, review, image_path: imagePath, genre_id: genreId });
           },
         );
       });

@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
 import "./BookForm.css";
 
-function BookForm({ onSubmit, editingBook, onCancel }) {
+function BookForm({ onSubmit, editingBook, onCancel, genres }) {
   const [title, setTitle] = useState("");
   const [author, setAuthor] = useState("");
   const [review, setReview] = useState("");
+  const [genreId, setGenreId] = useState("");
   const [image, setImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [submitting, setSubmitting] = useState(false);
@@ -14,6 +15,7 @@ function BookForm({ onSubmit, editingBook, onCancel }) {
       setTitle(editingBook.title || "");
       setAuthor(editingBook.author || "");
       setReview(editingBook.review || "");
+      setGenreId(editingBook.genre_id || "");
       setImagePreview(editingBook.image_path || null);
       setImage(null);
     } else {
@@ -25,6 +27,7 @@ function BookForm({ onSubmit, editingBook, onCancel }) {
     setTitle("");
     setAuthor("");
     setReview("");
+    setGenreId("");
     setImage(null);
     setImagePreview(null);
   };
@@ -55,6 +58,9 @@ function BookForm({ onSubmit, editingBook, onCancel }) {
     formData.append("title", title.trim());
     formData.append("author", author.trim());
     formData.append("review", review.trim());
+    if (genreId) {
+      formData.append("genre_id", genreId);
+    }
     if (image) {
       formData.append("image", image);
     }
@@ -116,6 +122,22 @@ function BookForm({ onSubmit, editingBook, onCancel }) {
             placeholder="Kirjoita lyhyt arvio kirjasta..."
             rows="4"
           />
+        </div>
+
+        <div className="form-group">
+          <label htmlFor="genre">Kategoria</label>
+          <select
+            id="genre"
+            value={genreId}
+            onChange={(e) => setGenreId(e.target.value)}
+          >
+            <option value="">-- Valitse kategoria --</option>
+            {genres.map((genre) => (
+              <option key={genre.id} value={genre.id}>
+                {genre.name}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className="form-group">

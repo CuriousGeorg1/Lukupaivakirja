@@ -30,6 +30,9 @@ function BookList({ books, onDelete, onEdit, apiUrl }) {
             <div className="book-content">
               <h3>{book.title}</h3>
               <p className="book-author">✍️ {book.author}</p>
+              {book.genre_name && (
+                <p className="book-genre">📂 {book.genre_name}</p>
+              )}
               {book.review && <p className="book-review">{book.review}</p>}
               <p className="book-date">
                 📅 {new Date(book.created_at).toLocaleDateString("fi-FI")}

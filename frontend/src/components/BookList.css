@@ -68,6 +68,13 @@
   font-weight: 500;
 }
 
+.book-genre {
+  color: #667eea;
+  font-size: 0.9rem;
+  margin-bottom: 12px;
+  font-weight: 600;
+}
+
 .book-review {
   color: #555;
   line-height: 1.6;
