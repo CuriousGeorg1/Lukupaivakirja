@@ -64,8 +64,10 @@ const upload = multer({
 
 // Genre endpoints
 app.get("/api/genres", async (req, res) => {
+  console.log("[BACKEND] Received request: GET /api/genres");
   try {
     const genres = await dbAdapter.getAllGenres();
+    console.log("[BACKEND] Sending response: GET /api/genres", genres);
     res.json(genres);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -73,15 +75,18 @@ app.get("/api/genres", async (req, res) => {
 });
 
 app.post("/api/genres", async (req, res) => {
+  console.log("[BACKEND] Received request: POST /api/genres", req.body);
   const { name } = req.body;
 
   if (!name || !name.trim()) {
+    console.log("[BACKEND] Sending response: POST /api/genres (400 error)");
     res.status(400).json({ error: "Genre name is required" });
     return;
   }
 
   try {
     const genre = await dbAdapter.createGenre(name.trim());
+    console.log("[BACKEND] Sending response: POST /api/genres", genre);
     res.status(201).json(genre);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -90,8 +95,10 @@ app.post("/api/genres", async (req, res) => {
 
 // Get all books
 app.get("/api/books", async (req, res) => {
+  console.log("[BACKEND] Received request: GET /api/books");
   try {
     const books = await dbAdapter.getAllBooks();
+    console.log("[BACKEND] Sending response: GET /api/books", books);
     res.json(books);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -100,12 +107,20 @@ app.get("/api/books", async (req, res) => {
 
 // Get single book
 app.get("/api/books/:id", async (req, res) => {
+  console.log(`[BACKEND] Received request: GET /api/books/${req.params.id}`);
   try {
     const book = await dbAdapter.getBookById(req.params.id);
     if (!book) {
+      console.log(
+        `[BACKEND] Sending response: GET /api/books/${req.params.id} (404 not found)`,
+      );
       res.status(404).json({ error: "Book not found" });
       return;
     }
+    console.log(
+      `[BACKEND] Sending response: GET /api/books/${req.params.id}`,
+      book,
+    );
     res.json(book);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -114,6 +129,7 @@ app.get("/api/books/:id", async (req, res) => {
 
 // Add new book
 app.post("/api/books", upload.single("image"), async (req, res) => {
+  console.log("[BACKEND] Received request: POST /api/books", req.body);
   const { title, author, review, genre_id } = req.body;
   const imagePath = req.file ? `/uploads/${req.file.filename}` : null;
 
@@ -121,13 +137,21 @@ app.post("/api/books", upload.single("image"), async (req, res) => {
     if (req.file) {
       fs.unlinkSync(req.file.path);
     }
+    console.log("[BACKEND] Sending response: POST /api/books (400 error)");
     res.status(400).json({ error: "Title and author are required" });
     return;
   }
 
   try {
     const genreId = genre_id ? parseInt(genre_id) : null;
-    const book = await dbAdapter.createBook(title, author, review, imagePath, genreId);
+    const book = await dbAdapter.createBook(
+      title,
+      author,
+      review,
+      imagePath,
+      genreId,
+    );
+    console.log("[BACKEND] Sending response: POST /api/books", book);
     res.status(201).json(book);
   } catch (err) {
     if (req.file) {
@@ -139,12 +163,19 @@ app.post("/api/books", upload.single("image"), async (req, res) => {
 
 // Update book
 app.put("/api/books/:id", upload.single("image"), async (req, res) => {
+  console.log(
+    `[BACKEND] Received request: PUT /api/books/${req.params.id}`,
+    req.body,
+  );
   const { title, author, review, genre_id } = req.body;
   const bookId = req.params.id;
 
   try {
     const existingBook = await dbAdapter.getBookById(bookId);
     if (!existingBook) {
+      console.log(
+        `[BACKEND] Sending response: PUT /api/books/${bookId} (404 not found)`,
+      );
       res.status(404).json({ error: "Book not found" });
       return;
     }
@@ -173,6 +204,10 @@ app.put("/api/books/:id", upload.single("image"), async (req, res) => {
       }
     }
 
+    console.log(
+      `[BACKEND] Sending response: PUT /api/books/${bookId}`,
+      updatedBook,
+    );
     res.json(updatedBook);
   } catch (err) {
     if (req.file) {
@@ -184,11 +219,15 @@ app.put("/api/books/:id", upload.single("image"), async (req, res) => {
 
 // Delete book
 app.delete("/api/books/:id", async (req, res) => {
+  console.log(`[BACKEND] Received request: DELETE /api/books/${req.params.id}`);
   const bookId = req.params.id;
 
   try {
     const book = await dbAdapter.getBookById(bookId);
     if (!book) {
+      console.log(
+        `[BACKEND] Sending response: DELETE /api/books/${bookId} (404 not found)`,
+      );
       res.status(404).json({ error: "Book not found" });
       return;
     }
@@ -203,6 +242,9 @@ app.delete("/api/books/:id", async (req, res) => {
       }
     }
 
+    console.log(`[BACKEND] Sending response: DELETE /api/books/${bookId}`, {
+      message: "Book deleted successfully",
+    });
     res.json({ message: "Book deleted successfully" });
   } catch (err) {
     res.status(500).json({ error: err.message });
