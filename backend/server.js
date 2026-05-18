@@ -1,0 +1,208 @@
+const express = require("express");
+const cors = require("cors");
+const multer = require("multer");
+const path = require("path");
+const fs = require("fs");
+const { v4: uuidv4 } = require("uuid");
+const { initializeDatabase, DatabaseAdapter } = require("./db");
+
+const app = express();
+const PORT = process.env.PORT || 3001;
+
+let dbAdapter;
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+app.use("/uploads", express.static("uploads"));
+
+// Ensure uploads directory exists
+if (!fs.existsSync("uploads")) {
+  fs.mkdirSync("uploads");
+}
+
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, "uploads/");
+  },
+  filename: (req, file, cb) => {
+    const uniqueName = `${uuidv4()}${path.extname(file.originalname)}`;
+    cb(null, uniqueName);
+  },
+});
+
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB max
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png|gif|webp/;
+    const extname = allowedTypes.test(
+      path.extname(file.originalname).toLowerCase(),
+    );
+    const mimetype = allowedTypes.test(file.mimetype);
+
+    if (mimetype && extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error("Only image files are allowed!"));
+    }
+  },
+});
+
+// API Routes
+
+// Get all books
+app.get("/api/books", async (req, res) => {
+  try {
+    const books = await dbAdapter.getAllBooks();
+    res.json(books);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get single book
+app.get("/api/books/:id", async (req, res) => {
+  try {
+    const book = await dbAdapter.getBookById(req.params.id);
+    if (!book) {
+      res.status(404).json({ error: "Book not found" });
+      return;
+    }
+    res.json(book);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Add new book
+app.post("/api/books", upload.single("image"), async (req, res) => {
+  const { title, author, review } = req.body;
+  const imagePath = req.file ? `/uploads/${req.file.filename}` : null;
+
+  if (!title || !author) {
+    if (req.file) {
+      fs.unlinkSync(req.file.path);
+    }
+    res.status(400).json({ error: "Title and author are required" });
+    return;
+  }
+
+  try {
+    const book = await dbAdapter.createBook(title, author, review, imagePath);
+    res.status(201).json(book);
+  } catch (err) {
+    if (req.file) {
+      fs.unlinkSync(req.file.path);
+    }
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update book
+app.put("/api/books/:id", upload.single("image"), async (req, res) => {
+  const { title, author, review } = req.body;
+  const bookId = req.params.id;
+
+  try {
+    const existingBook = await dbAdapter.getBookById(bookId);
+    if (!existingBook) {
+      res.status(404).json({ error: "Book not found" });
+      return;
+    }
+
+    const oldImagePath = existingBook.image_path;
+    const newImagePath = req.file
+      ? `/uploads/${req.file.filename}`
+      : oldImagePath;
+
+    const updatedBook = await dbAdapter.updateBook(
+      bookId,
+      title,
+      author,
+      review,
+      newImagePath,
+    );
+
+    // Delete old image if a new one was uploaded
+    if (req.file && oldImagePath) {
+      const oldFilePath = path.join(__dirname, oldImagePath);
+      if (fs.existsSync(oldFilePath)) {
+        fs.unlinkSync(oldFilePath);
+      }
+    }
+
+    res.json(updatedBook);
+  } catch (err) {
+    if (req.file) {
+      fs.unlinkSync(req.file.path);
+    }
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete book
+app.delete("/api/books/:id", async (req, res) => {
+  const bookId = req.params.id;
+
+  try {
+    const book = await dbAdapter.getBookById(bookId);
+    if (!book) {
+      res.status(404).json({ error: "Book not found" });
+      return;
+    }
+
+    await dbAdapter.deleteBook(bookId);
+
+    // Delete image file if exists
+    if (book.image_path) {
+      const filePath = path.join(__dirname, book.image_path);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    }
+
+    res.json({ message: "Book deleted successfully" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Health check endpoint
+app.get("/api/health", (req, res) => {
+  res.json({ status: "ok", timestamp: new Date().toISOString() });
+});
+
+// Initialize database and start server
+async function startServer() {
+  try {
+    const { db, Book } = await initializeDatabase();
+    dbAdapter = new DatabaseAdapter(db, Book);
+    console.log("Database initialized successfully");
+
+    // Start server after database is ready
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error("Failed to initialize database:", error);
+    process.exit(1);
+  }
+}
+
+// Start the application
+startServer();
+
+// Graceful shutdown
+process.on("SIGINT", async () => {
+  if (dbAdapter) {
+    try {
+      await dbAdapter.close();
+      console.log("Database connection closed");
+    } catch (err) {
+      console.error("Error closing database:", err.message);
+    }
+  }
+  process.exit(0);
+}); 
