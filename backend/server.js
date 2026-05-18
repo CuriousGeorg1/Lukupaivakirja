@@ -264,7 +264,7 @@ async function startServer() {
     console.log("Database initialized successfully");
 
     // Start server after database is ready
-    app.listen(PORT, () => {
+    app.listen(PORT, "0.0.0.0", () => {
       console.log(`Server running on port ${PORT}`);
     });
   } catch (error) {
