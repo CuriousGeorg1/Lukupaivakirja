@@ -12,7 +12,7 @@ let sequelize;
 async function initializeDatabase() {
   if (useAzureSQL || usePostgreSQL) {
     // Azure SQL or PostgreSQL with Sequelize
-    console.log("Using cloud database (Azure SQL/PostgreSQL)");
+    console.log("Using cloud database (PostgreSQL)");
 
     if (useAzureSQL) {
       sequelize = new Sequelize(process.env.AZURE_SQL_CONNECTION_STRING, {
@@ -26,6 +26,8 @@ async function initializeDatabase() {
         logging: false,
       });
     } else {
+      // Supabase PostgreSQL or other PostgreSQL
+      console.log("Connecting to PostgreSQL database (Supabase/other)");
       sequelize = new Sequelize(process.env.POSTGRESQL_CONNECTION_STRING, {
         dialect: "postgres",
         dialectOptions: {
@@ -33,6 +35,12 @@ async function initializeDatabase() {
             require: true,
             rejectUnauthorized: false,
           },
+        },
+        pool: {
+          max: 5,
+          min: 0,
+          acquire: 30000,
+          idle: 10000,
         },
         logging: false,
       });
@@ -76,8 +84,8 @@ async function initializeDatabase() {
         },
       );
 
-      // Sync database
-      await sequelize.sync();
+      // Sync database (create tables if they don't exist, but don't alter existing ones)
+      await sequelize.sync({ alter: false });
       console.log("Database tables synchronized");
 
       return { sequelize, Book };
