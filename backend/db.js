@@ -184,7 +184,7 @@ async function initializeDatabase() {
         console.log("Default genres created");
       }
 
-      return { sequelize, Book, Genre };
+      return { sequelize, Book, Genre, Writer };
     } catch (error) {
       console.error("Unable to connect to database:");
       console.error("   Error name:", error.name);
