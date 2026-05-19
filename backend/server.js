@@ -31,7 +31,7 @@ if (!fs.existsSync("uploads")) {
   fs.mkdirSync("uploads");
 }
 
-// Configure multer for file uploads
+// Multer config
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, "uploads/");
