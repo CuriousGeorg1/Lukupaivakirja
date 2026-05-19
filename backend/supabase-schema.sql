@@ -47,9 +47,9 @@ INSERT INTO genres (name) VALUES
   ('Muu')
 ON CONFLICT (name) DO NOTHING;
 
--- Kommentteja tauluihin
+-- Kommentteja 
 COMMENT ON TABLE genres IS 'Kirjojen kategoriat (1:N-suhde kirjoihin)';
-COMMENT ON COLUMN genres.id IS 'Kategorian yksilöllinen tunniste';
+COMMENT ON COLUMN genres.id IS 'Kategorian  tunniste';
 COMMENT ON COLUMN genres.name IS 'Kategorian nimi';
 
 COMMENT ON TABLE books IS 'Lukupäiväkirjan kirjat';
@@ -61,8 +61,7 @@ COMMENT ON COLUMN books.image_path IS 'Polku kirjan kansikuvaan';
 COMMENT ON COLUMN books.genre_id IS 'Viittaus kategorian ID:hen (1:N-suhde)';
 COMMENT ON COLUMN books.created_at IS 'Kirjan lisäysaika';
 
--- Schema created successfully!
--- You can verify the tables by running this query separately:
+-- Varmista taulut
 /*
 SELECT 
   'genres' as table_name,
