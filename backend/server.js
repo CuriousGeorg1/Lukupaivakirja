@@ -228,9 +228,7 @@ app.put("/api/books/:id", upload.single("image"), async (req, res) => {
       review,
       newImagePath,
       genreId,
-      writerw,
-      newImagePath,
-      genreId,
+      writerId,
     );
 
     // Delete old image if a new one was uploaded

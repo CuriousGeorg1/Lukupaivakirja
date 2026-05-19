@@ -1,13 +1,13 @@
--- Lukupäiväkirja - Supabase Database Schema
--- Aja tämä SQL-skripti Supabase SQL Editorissa
+-- Lukupäiväkirja -  Database Schema
+-- Aja tämä SQL-skripti  SQL Editorissa
 
--- Luo genres-taulu (kategoriat)
+-- Luo genres-taulu
 CREATE TABLE IF NOT EXISTS genres (
   id SERIAL PRIMARY KEY,
   name VARCHAR(100) NOT NULL UNIQUE
 );
 
--- Luo writers-taulu (kirjailijat)
+-- Luo writers-taulu
 CREATE TABLE IF NOT EXISTS writers (
   id SERIAL PRIMARY KEY,
   name VARCHAR(255) NOT NULL UNIQUE
@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS books (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Lisää genre_id-sarake jos se puuttuu (olemassa oleville tauluille)
+-- Lisää genre_id-sarake jos se puuttuu
 DO $$ 
 BEGIN
   IF NOT EXISTS (
@@ -35,13 +35,13 @@ BEGIN
   END IF;
 END $$;
 
--- Lisää indeksit suorituskyvyn parantamiseksi
+-- Lisää indeksit
 CREATE INDEX IF NOT EXISTS idx_books_created_at ON books(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_books_author ON books(author);
 CREATE INDEX IF NOT EXISTS idx_books_writer_id ON books(writer_id);
 CREATE INDEX IF NOT EXISTS idx_books_genre_id ON books(genre_id);
 
--- Lisää oletuskategoriat
+-- Lisää kategoriat
 INSERT INTO genres (name) VALUES 
   ('Fiktio'),
   ('Tietokirja'),
@@ -59,19 +59,18 @@ ON CONFLICT (name) DO NOTHING;
 COMMENT ON TABLE genres IS 'Kirjojen kategoriat (1:N-suhde kirjoihin)';
 COMMENT ON COLUMN genres.id IS 'Kategorian  tunniste';
 COMMENT ON COLUMN genres.name IS 'Kategorian nimi';
-writers IS 'Kirjailijat (1:N-suhde kirjoihin)';
+COMMENT ON TABLE writers IS 'Kirjailijat (1:N-suhde kirjoihin)';
 COMMENT ON COLUMN writers.id IS 'Kirjailijan tunniste';
 COMMENT ON COLUMN writers.name IS 'Kirjailijan nimi';
 
 COMMENT ON TABLE books IS 'Lukupäiväkirjan kirjat';
 COMMENT ON COLUMN books.id IS 'Kirjan yksilöllinen tunniste';
 COMMENT ON COLUMN books.title IS 'Kirjan nimi';
-COMMENT ON COLUMN books.author IS 'Kirjailijan nimi (vanhentunut, käytä writer_id)';
-COMMENT ON COLUMN books.writer_id IS 'Viittaus kirjailijan ID:hen (1:N-suhde)
-COMMENT ON COLUMN books.author IS 'Kirjailijan nimi';
+COMMENT ON COLUMN books.author IS 'Kirjailijan nimi (vanhentunut';
+COMMENT ON COLUMN books.writer_id IS 'Viittaus kirjailijan ID (1:N-suhde)';
 COMMENT ON COLUMN books.review IS 'Käyttäjän kirjoittama arvostelu';
 COMMENT ON COLUMN books.image_path IS 'Polku kirjan kansikuvaan';
-COMMENT ON COLUMN books.genre_id IS 'Viittaus kategorian ID:hen (1:N-suhde)';
+COMMENT ON COLUMN books.genre_id IS 'Viittaus kategorian ID (1:N-suhde)';
 COMMENT ON COLUMN books.created_at IS 'Kirjan lisäysaika';
 
 -- Varmista taulut

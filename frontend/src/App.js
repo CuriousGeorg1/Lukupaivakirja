@@ -3,7 +3,44 @@ import "./App.css";
 import BookForm from "./components/BookForm";
 import BookList from "./components/BookList";
 
-const API_URL = process.env.REACT_APP_API_URL;
+// API URL with fallback and validation
+const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3001";
+
+// Validate API URL on load
+if (!process.env.REACT_APP_API_URL) {
+  console.warn(
+    "⚠️ REACT_APP_API_URL environment variable is not set! Using fallback:",
+    API_URL,
+  );
+}
+console.log("🔗 API URL configured:", API_URL);
+
+// Helper function for better error handling
+const handleApiError = async (response, endpoint) => {
+  const url = `${API_URL}${endpoint}`;
+
+  if (!response.ok) {
+    let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+
+    try {
+      const errorData = await response.json();
+      if (errorData.error) {
+        errorMessage = `${errorMessage} - ${errorData.error}`;
+      }
+    } catch (e) {
+      // Response wasn't JSON
+    }
+
+    console.error(`[ERROR] ${endpoint} failed:`, {
+      url,
+      status: response.status,
+      statusText: response.statusText,
+      message: errorMessage,
+    });
+
+    throw new Error(errorMessage);
+  }
+};
 
 function App() {
   const [books, setBooks] = useState([]);
@@ -20,35 +57,60 @@ function App() {
   }, []);
 
   const fetchGenres = async () => {
+    const endpoint = "/api/genres";
     try {
-      console.log("[FRONTEND] Sending request: GET /api/genres");
-      const response = await fetch(`${API_URL}/api/genres`);
-      if (!response.ok) throw new Error("Virhe kategorioiden haussa");
+      console.log(`[FRONTEND] Sending request: GET ${endpoint} to ${API_URL}`);
+      const response = await fetch(`${API_URL}${endpoint}`);
+      await handleApiError(response, endpoint);
       const data = await response.json();
-      console.log("[FRONTEND] Received response: GET /api/genres", data);
+      console.log(`[FRONTEND] Received response: GET ${endpoint}`, data);
       setGenres(data);
     } catch (err) {
-      console.error("Error fetching genres:", err);
+      const errorMsg = `Virhe kategorioiden haussa: ${err.message}`;
+      console.error(`[ERROR] ${endpoint}:`, err);
+      if (err.message.includes("Failed to fetch") || err.name === "TypeError") {
+        console.error(
+          "❌ Network error - unable to reach backend at:",
+          API_URL,
+        );
+        console.error(
+          "Check: 1) Backend is running, 2) REACT_APP_API_URL is correct, 3) CORS settings",
+        );
+      }
+      setError(errorMsg);
     }
   };
 
   const fetchWriters = async () => {
+    const endpoint = "/api/writers";
     try {
-      console.log("[FRONTEND] Sending request: GET /api/writers");
-      const response = await fetch(`${API_URL}/api/writers`);
-      if (!response.ok) throw new Error("Virhe kirjailijoiden haussa");
+      console.log(`[FRONTEND] Sending request: GET ${endpoint} to ${API_URL}`);
+      const response = await fetch(`${API_URL}${endpoint}`);
+      await handleApiError(response, endpoint);
       const data = await response.json();
-      console.log("[FRONTEND] Received response: GET /api/writers", data);
+      console.log(`[FRONTEND] Received response: GET ${endpoint}`, data);
       setWriters(data);
     } catch (err) {
-      console.error("Error fetching writers:", err);
+      const errorMsg = `Virhe kirjailijoiden haussa: ${err.message}`;
+      console.error(`[ERROR] ${endpoint}:`, err);
+      if (err.message.includes("Failed to fetch") || err.name === "TypeError") {
+        console.error(
+          "❌ Network error - unable to reach backend at:",
+          API_URL,
+        );
+        console.error(
+          "Check: 1) Backend is running, 2) REACT_APP_API_URL is correct, 3) CORS settings",
+        );
+      }
+      setError(errorMsg);
     }
   };
 
   const handleAddWriter = async (name) => {
+    const endpoint = "/api/writers";
     try {
-      console.log("[FRONTEND] Sending request: POST /api/writers", { name });
-      const response = await fetch(`${API_URL}/api/writers`, {
+      console.log(`[FRONTEND] Sending request: POST ${endpoint}`, { name });
+      const response = await fetch(`${API_URL}${endpoint}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -56,72 +118,92 @@ function App() {
         body: JSON.stringify({ name }),
       });
 
-      if (!response.ok) throw new Error("Virhe kirjailijan lisäämisessä");
+      await handleApiError(response, endpoint);
       const data = await response.json();
-      console.log("[FRONTEND] Received response: POST /api/writers", data);
+      console.log(`[FRONTEND] Received response: POST ${endpoint}`, data);
 
       await fetchWriters();
       return data;
     } catch (err) {
-      setError(err.message);
+      const errorMsg = `Virhe kirjailijan lisäämisessä: ${err.message}`;
+      console.error(`[ERROR] POST ${endpoint}:`, err);
+      setError(errorMsg);
       return null;
     }
   };
 
   const fetchBooks = async () => {
+    const endpoint = "/api/books";
     try {
       setLoading(true);
-      console.log("[FRONTEND] Sending request: GET /api/books");
-      const response = await fetch(`${API_URL}/api/books`);
-      if (!response.ok) throw new Error("Virhe kirjojen haussa");
+      console.log(`[FRONTEND] Sending request: GET ${endpoint} to ${API_URL}`);
+      const response = await fetch(`${API_URL}${endpoint}`);
+      await handleApiError(response, endpoint);
       const data = await response.json();
-      console.log("[FRONTEND] Received response: GET /api/books", data);
+      console.log(`[FRONTEND] Received response: GET ${endpoint}`, data);
       setBooks(data);
       setError(null);
     } catch (err) {
-      setError(err.message);
+      const errorMsg = `Virhe kirjojen haussa: ${err.message}`;
+      console.error(`[ERROR] ${endpoint}:`, err);
+      if (err.message.includes("Failed to fetch") || err.name === "TypeError") {
+        console.error(
+          "❌ Network error - unable to reach backend at:",
+          API_URL,
+        );
+        console.error(
+          "Check: 1) Backend is running, 2) REACT_APP_API_URL is correct, 3) CORS settings",
+        );
+      }
+      setError(errorMsg);
     } finally {
       setLoading(false);
     }
   };
 
   const handleAddBook = async (formData) => {
+    const endpoint = "/api/books";
     try {
-      console.log("[FRONTEND] Sending request: POST /api/books", formData);
-      const response = await fetch(`${API_URL}/api/books`, {
+      console.log(`[FRONTEND] Sending request: POST ${endpoint}`);
+      const response = await fetch(`${API_URL}${endpoint}`, {
         method: "POST",
         body: formData,
       });
 
-      if (!response.ok) throw new Error("Virhe kirjan lisäämisessä");
+      await handleApiError(response, endpoint);
       const data = await response.json();
-      console.log("[FRONTEND] Received response: POST /api/books", data);
+      console.log(`[FRONTEND] Received response: POST ${endpoint}`, data);
 
       await fetchBooks();
       return true;
     } catch (err) {
-      setError(err.message);
+      const errorMsg = `Virhe kirjan lisäämisessä: ${err.message}`;
+      console.error(`[ERROR] POST ${endpoint}:`, err);
+      setError(errorMsg);
       return false;
     }
   };
 
   const handleUpdateBook = async (id, formData) => {
+    const endpoint = `/api/books/${id}`;
     try {
-      console.log(`[FRONTEND] Sending request: PUT /api/books/${id}`, formData);
-      const response = await fetch(`${API_URL}/api/books/${id}`, {
+      console.log(`[FRONTEND] Sending request: PUT ${endpoint}`);
+      const response = await fetch(`${API_URL}${endpoint}`, {
         method: "PUT",
         body: formData,
       });
 
-      if (!response.ok) throw new Error("Virhe kirjan päivittämisessä");
+      await handleApiError(response, endpoint);
       const data = await response.json();
-      console.log(`[FRONTEND] Received response: PUT /api/books/${id}`, data);
+      console.log(`[FRONTEND] Received response: PUT ${endpoint}`, data);
 
       await fetchBooks();
       setEditingBook(null);
       return true;
     } catch (err) {
-      setError(err.message);
+      const errorMsg = `Virhe kirjan päivittämisessä: ${err.message}`;
+      console.error(`[ERROR] PUT ${endpoint}:`, err);
+      setError(errorMsg);
       return false;
     }
   };
@@ -129,22 +211,22 @@ function App() {
   const handleDeleteBook = async (id) => {
     if (!window.confirm("Haluatko varmasti poistaa tämän kirjan?")) return;
 
+    const endpoint = `/api/books/${id}`;
     try {
-      console.log(`[FRONTEND] Sending request: DELETE /api/books/${id}`);
-      const response = await fetch(`${API_URL}/api/books/${id}`, {
+      console.log(`[FRONTEND] Sending request: DELETE ${endpoint}`);
+      const response = await fetch(`${API_URL}${endpoint}`, {
         method: "DELETE",
       });
 
-      if (!response.ok) throw new Error("Virhe kirjan poistamisessa");
+      await handleApiError(response, endpoint);
       const data = await response.json();
-      console.log(
-        `[FRONTEND] Received response: DELETE /api/books/${id}`,
-        data,
-      );
+      console.log(`[FRONTEND] Received response: DELETE ${endpoint}`, data);
 
       await fetchBooks();
     } catch (err) {
-      setError(err.message);
+      const errorMsg = `Virhe kirjan poistamisessa: ${err.message}`;
+      console.error(`[ERROR] DELETE ${endpoint}:`, err);
+      setError(errorMsg);
     }
   };
 
