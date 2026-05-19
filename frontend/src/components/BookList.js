@@ -29,7 +29,9 @@ function BookList({ books, onDelete, onEdit, apiUrl }) {
             )}
             <div className="book-content">
               <h3>{book.title}</h3>
-              <p className="book-author">✍️ {book.author}</p>
+              <p className="book-author">
+                ✍️ {book.writer_name || book.author || "Tuntematon"}
+              </p>
               {book.genre_name && (
                 <p className="book-genre">📂 {book.genre_name}</p>
               )}

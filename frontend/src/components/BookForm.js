@@ -1,9 +1,18 @@
 import React, { useState, useEffect } from "react";
 import "./BookForm.css";
 
-function BookForm({ onSubmit, editingBook, onCancel, genres }) {
+function BookForm({
+  onSubmit,
+  editingBook,
+  onCancel,
+  genres,
+  writers,
+  onAddWriter,
+}) {
   const [title, setTitle] = useState("");
-  const [author, setAuthor] = useState("");
+  const [writerId, setWriterId] = useState("");
+  const [newWriterName, setNewWriterName] = useState("");
+  const [showAddWriter, setShowAddWriter] = useState(false);
   const [review, setReview] = useState("");
   const [genreId, setGenreId] = useState("");
   const [image, setImage] = useState(null);
@@ -13,11 +22,13 @@ function BookForm({ onSubmit, editingBook, onCancel, genres }) {
   useEffect(() => {
     if (editingBook) {
       setTitle(editingBook.title || "");
-      setAuthor(editingBook.author || "");
+      setWriterId(editingBook.writer_id || "");
       setReview(editingBook.review || "");
       setGenreId(editingBook.genre_id || "");
       setImagePreview(editingBook.image_path || null);
       setImage(null);
+      setShowAddWriter(false);
+      setNewWriterName("");
     } else {
       resetForm();
     }
@@ -25,7 +36,9 @@ function BookForm({ onSubmit, editingBook, onCancel, genres }) {
 
   const resetForm = () => {
     setTitle("");
-    setAuthor("");
+    setWriterId("");
+    setNewWriterName("");
+    setShowAddWriter(false);
     setReview("");
     setGenreId("");
     setImage(null);
@@ -47,19 +60,36 @@ function BookForm({ onSubmit, editingBook, onCancel, genres }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!title.trim() || !author.trim()) {
-      alert("Täytä vähintään kirjan nimi ja kirjailija");
+    if (!title.trim()) {
+      alert("Täytä kirjan nimi");
       return;
+    }
+
+    // Handle adding a new writer if needed
+    let finalWriterId = writerId;
+    if (showAddWriter && newWriterName.trim()) {
+      const newWriter = await onAddWriter(newWriterName.trim());
+      if (newWriter) {
+        finalWriterId = newWriter.id;
+        setShowAddWriter(false);
+        setNewWriterName("");
+      } else {
+        alert("Virhe kirjailijan lisäämisessä");
+        setSubmitting(false);
+        return;
+      }
     }
 
     setSubmitting(true);
 
     const formData = new FormData();
     formData.append("title", title.trim());
-    formData.append("author", author.trim());
     formData.append("review", review.trim());
     if (genreId) {
       formData.append("genre_id", genreId);
+    }
+    if (finalWriterId) {
+      formData.append("writer_id", finalWriterId);
     }
     if (image) {
       formData.append("image", image);
@@ -102,15 +132,52 @@ function BookForm({ onSubmit, editingBook, onCancel, genres }) {
         </div>
 
         <div className="form-group">
-          <label htmlFor="author">Kirjailija *</label>
-          <input
-            type="text"
-            id="author"
-            value={author}
-            onChange={(e) => setAuthor(e.target.value)}
-            placeholder="Esim. Väinö Linna"
-            required
-          />
+          <label htmlFor="writer">Kirjailija</label>
+          {!showAddWriter ? (
+            <div style={{ display: "flex", gap: "0.5rem" }}>
+              <select
+                id="writer"
+                value={writerId}
+                onChange={(e) => setWriterId(e.target.value)}
+                style={{ flex: 1 }}
+              >
+                <option value="">-- Valitse kirjailija --</option>
+                {writers &&
+                  writers.map((writer) => (
+                    <option key={writer.id} value={writer.id}>
+                      {writer.name}
+                    </option>
+                  ))}
+              </select>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setShowAddWriter(true)}
+              >
+                + Uusi
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: "flex", gap: "0.5rem" }}>
+              <input
+                type="text"
+                value={newWriterName}
+                onChange={(e) => setNewWriterName(e.target.value)}
+                placeholder="Kirjailijan nimi"
+                style={{ flex: 1 }}
+              />
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => {
+                  setShowAddWriter(false);
+                  setNewWriterName("");
+                }}
+              >
+                Peruuta
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="form-group">
@@ -132,11 +199,12 @@ function BookForm({ onSubmit, editingBook, onCancel, genres }) {
             onChange={(e) => setGenreId(e.target.value)}
           >
             <option value="">-- Valitse kategoria --</option>
-            {genres.map((genre) => (
-              <option key={genre.id} value={genre.id}>
-                {genre.name}
-              </option>
-            ))}
+            {genres &&
+              genres.map((genre) => (
+                <option key={genre.id} value={genre.id}>
+                  {genre.name}
+                </option>
+              ))}
           </select>
         </div>
 

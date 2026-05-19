@@ -93,6 +93,37 @@ app.post("/api/genres", async (req, res) => {
   }
 });
 
+// Writer endpoints
+app.get("/api/writers", async (req, res) => {
+  console.log("[BACKEND] Received request: GET /api/writers");
+  try {
+    const writers = await dbAdapter.getAllWriters();
+    console.log("[BACKEND] Sending response: GET /api/writers", writers);
+    res.json(writers);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/writers", async (req, res) => {
+  console.log("[BACKEND] Received request: POST /api/writers", req.body);
+  const { name } = req.body;
+
+  if (!name || !name.trim()) {
+    console.log("[BACKEND] Sending response: POST /api/writers (400 error)");
+    res.status(400).json({ error: "Writer name is required" });
+    return;
+  }
+
+  try {
+    const writer = await dbAdapter.createWriter(name.trim());
+    console.log("[BACKEND] Sending response: POST /api/writers", writer);
+    res.status(201).json(writer);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Get all books
 app.get("/api/books", async (req, res) => {
   console.log("[BACKEND] Received request: GET /api/books");
@@ -130,26 +161,28 @@ app.get("/api/books/:id", async (req, res) => {
 // Add new book
 app.post("/api/books", upload.single("image"), async (req, res) => {
   console.log("[BACKEND] Received request: POST /api/books", req.body);
-  const { title, author, review, genre_id } = req.body;
+  const { title, author, review, genre_id, writer_id } = req.body;
   const imagePath = req.file ? `/uploads/${req.file.filename}` : null;
 
-  if (!title || !author) {
+  if (!title) {
     if (req.file) {
       fs.unlinkSync(req.file.path);
     }
     console.log("[BACKEND] Sending response: POST /api/books (400 error)");
-    res.status(400).json({ error: "Title and author are required" });
+    res.status(400).json({ error: "Title is required" });
     return;
   }
 
   try {
     const genreId = genre_id ? parseInt(genre_id) : null;
+    const writerId = writer_id ? parseInt(writer_id) : null;
     const book = await dbAdapter.createBook(
       title,
-      author,
+      author || null,
       review,
       imagePath,
       genreId,
+      writerId,
     );
     console.log("[BACKEND] Sending response: POST /api/books", book);
     res.status(201).json(book);
@@ -167,7 +200,7 @@ app.put("/api/books/:id", upload.single("image"), async (req, res) => {
     `[BACKEND] Received request: PUT /api/books/${req.params.id}`,
     req.body,
   );
-  const { title, author, review, genre_id } = req.body;
+  const { title, author, review, genre_id, writer_id } = req.body;
   const bookId = req.params.id;
 
   try {
@@ -186,12 +219,16 @@ app.put("/api/books/:id", upload.single("image"), async (req, res) => {
       : oldImagePath;
 
     const genreId = genre_id ? parseInt(genre_id) : existingBook.genre_id;
+    const writerId = writer_id ? parseInt(writer_id) : existingBook.writer_id;
 
     const updatedBook = await dbAdapter.updateBook(
       bookId,
       title,
-      author,
+      author || null,
       review,
+      newImagePath,
+      genreId,
+      writerw,
       newImagePath,
       genreId,
     );
@@ -259,8 +296,8 @@ app.get("/api/health", (req, res) => {
 // Initialize database and start server
 async function startServer() {
   try {
-    const { db, Book, Genre } = await initializeDatabase();
-    dbAdapter = new DatabaseAdapter(db, Book, Genre);
+    const { db, Book, Genre, Writer } = await initializeDatabase();
+    dbAdapter = new DatabaseAdapter(db, Book, Genre, Writer);
     console.log("Database initialized successfully");
 
     // Start server after database is ready

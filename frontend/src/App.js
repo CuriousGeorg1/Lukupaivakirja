@@ -8,6 +8,7 @@ const API_URL = process.env.REACT_APP_API_URL;
 function App() {
   const [books, setBooks] = useState([]);
   const [genres, setGenres] = useState([]);
+  const [writers, setWriters] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [editingBook, setEditingBook] = useState(null);
@@ -15,6 +16,7 @@ function App() {
   useEffect(() => {
     fetchBooks();
     fetchGenres();
+    fetchWriters();
   }, []);
 
   const fetchGenres = async () => {
@@ -27,6 +29,42 @@ function App() {
       setGenres(data);
     } catch (err) {
       console.error("Error fetching genres:", err);
+    }
+  };
+
+  const fetchWriters = async () => {
+    try {
+      console.log("[FRONTEND] Sending request: GET /api/writers");
+      const response = await fetch(`${API_URL}/api/writers`);
+      if (!response.ok) throw new Error("Virhe kirjailijoiden haussa");
+      const data = await response.json();
+      console.log("[FRONTEND] Received response: GET /api/writers", data);
+      setWriters(data);
+    } catch (err) {
+      console.error("Error fetching writers:", err);
+    }
+  };
+
+  const handleAddWriter = async (name) => {
+    try {
+      console.log("[FRONTEND] Sending request: POST /api/writers", { name });
+      const response = await fetch(`${API_URL}/api/writers`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name }),
+      });
+
+      if (!response.ok) throw new Error("Virhe kirjailijan lisäämisessä");
+      const data = await response.json();
+      console.log("[FRONTEND] Received response: POST /api/writers", data);
+
+      await fetchWriters();
+      return data;
+    } catch (err) {
+      setError(err.message);
+      return null;
     }
   };
 
@@ -134,6 +172,8 @@ function App() {
           editingBook={editingBook}
           onCancel={handleCancelEdit}
           genres={genres}
+          writers={writers}
+          onAddWriter={handleAddWriter}
         />
 
         {loading ? (

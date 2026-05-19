@@ -85,6 +85,27 @@ async function initializeDatabase() {
         },
       );
 
+      // Define Writer model
+      const Writer = sequelize.define(
+        "Writer",
+        {
+          id: {
+            type: Sequelize.INTEGER,
+            primaryKey: true,
+            autoIncrement: true,
+          },
+          name: {
+            type: Sequelize.STRING,
+            allowNull: false,
+            unique: true,
+          },
+        },
+        {
+          tableName: "writers",
+          timestamps: false,
+        },
+      );
+
       // Define Book model
       const Book = sequelize.define(
         "Book",
@@ -100,7 +121,15 @@ async function initializeDatabase() {
           },
           author: {
             type: Sequelize.STRING,
-            allowNull: false,
+            allowNull: true,
+          },
+          writer_id: {
+            type: Sequelize.INTEGER,
+            allowNull: true,
+            references: {
+              model: Writer,
+              key: "id",
+            },
           },
           review: {
             type: Sequelize.TEXT,
@@ -127,15 +156,17 @@ async function initializeDatabase() {
         },
       );
 
-      // Define relationships (1:N - One genre has many books)
+      // Define relationships
       Genre.hasMany(Book, { foreignKey: "genre_id" });
       Book.belongsTo(Genre, { foreignKey: "genre_id" });
 
-      // Sync database (create tables if they don't exist, but don't alter existing ones)
+      Writer.hasMany(Book, { foreignKey: "writer_id" });
+      Book.belongsTo(Writer, { foreignKey: "writer_id" });
+
+      // Sync database
       await sequelize.sync({ alter: false });
       console.log("Database tables synchronized");
 
-      // Insert default genres if table is empty
       const genreCount = await Genre.count();
       if (genreCount === 0) {
         await Genre.bulkCreate([
@@ -189,7 +220,13 @@ async function initializeDatabase() {
           console.log("Connected to SQLite database");
           initializeSQLite()
             .then(() =>
-              resolve({ db, sequelize: null, Book: null, Genre: null }),
+              resolve({
+                db,
+                sequelize: null,
+                Book: null,
+                Genre: null,
+                Writer: null,
+              }),
             )
             .catch(reject);
         }
@@ -216,62 +253,88 @@ function initializeSQLite() {
         }
         console.log("Genres table ready");
 
-        // Create books table with foreign key to genres
+        // Create writers table
         db.run(
           `
+          CREATE TABLE IF NOT EXISTS writers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE
+          )
+        `,
+          (err) => {
+            if (err) {
+              console.error("Error creating writers table:", err.message);
+              reject(err);
+              return;
+            }
+            console.log("Writers table ready");
+
+            // Create books table with foreign key to genres and writers
+            db.run(
+              `
       CREATE TABLE IF NOT EXISTS books (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         title TEXT NOT NULL,
-        author TEXT NOT NULL,
+        author TEXT,
+        writer_id INTEGER,
         review TEXT,
         image_path TEXT,
         genre_id INTEGER,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (genre_id) REFERENCES genres(id)
+        FOREIGN KEY (genre_id) REFERENCES genres(id),
+        FOREIGN KEY (writer_id) REFERENCES writers(id)
       )
     `,
-          (err) => {
-            if (err) {
-              console.error("Error creating books table:", err.message);
-              reject(err);
-              return;
-            }
-            console.log("Books table ready");
+              (err) => {
+                if (err) {
+                  console.error("Error creating books table:", err.message);
+                  reject(err);
+                  return;
+                }
+                console.log("Books table ready");
 
-            // Insert default genres if table is empty
-            db.get("SELECT COUNT(*) as count FROM genres", [], (err, row) => {
-              if (err) {
-                reject(err);
-                return;
-              }
+                // Insert default genres if table is empty
+                db.get(
+                  "SELECT COUNT(*) as count FROM genres",
+                  [],
+                  (err, row) => {
+                    if (err) {
+                      reject(err);
+                      return;
+                    }
 
-              if (row.count === 0) {
-                const genres = [
-                  "Fiktio",
-                  "Tietokirja",
-                  "Fantasia",
-                  "Tiede",
-                  "Historia",
-                  "Biografia",
-                  "Romantiikka",
-                  "Jännitys",
-                  "Scifi",
-                  "Muu",
-                ];
-                const stmt = db.prepare("INSERT INTO genres (name) VALUES (?)");
-                genres.forEach((genre) => stmt.run(genre));
-                stmt.finalize((err) => {
-                  if (err) {
-                    reject(err);
-                  } else {
-                    console.log("Default genres created");
-                    resolve();
-                  }
-                });
-              } else {
-                resolve();
-              }
-            });
+                    if (row.count === 0) {
+                      const genres = [
+                        "Fiktio",
+                        "Tietokirja",
+                        "Fantasia",
+                        "Tiede",
+                        "Historia",
+                        "Biografia",
+                        "Romantiikka",
+                        "Jännitys",
+                        "Scifi",
+                        "Muu",
+                      ];
+                      const stmt = db.prepare(
+                        "INSERT INTO genres (name) VALUES (?)",
+                      );
+                      genres.forEach((genre) => stmt.run(genre));
+                      stmt.finalize((err) => {
+                        if (err) {
+                          reject(err);
+                        } else {
+                          console.log("Default genres created");
+                          resolve();
+                        }
+                      });
+                    } else {
+                      resolve();
+                    }
+                  },
+                );
+              },
+            );
           },
         );
       },
@@ -281,10 +344,11 @@ function initializeSQLite() {
 
 // Database operations abstraction
 class DatabaseAdapter {
-  constructor(db, Book, Genre) {
+  constructor(db, Book, Genre, Writer) {
     this.db = db;
     this.Book = Book;
     this.Genre = Genre;
+    this.Writer = Writer;
     this.useSequelize = !!Book;
   }
 
@@ -341,10 +405,66 @@ class DatabaseAdapter {
     }
   }
 
+  async getAllWriters() {
+    if (this.useSequelize) {
+      const writers = await this.Writer.findAll({
+        order: [["name", "ASC"]],
+        raw: true,
+      });
+      return writers;
+    } else {
+      return new Promise((resolve, reject) => {
+        this.db.all(
+          "SELECT * FROM writers ORDER BY name ASC",
+          [],
+          (err, rows) => {
+            if (err) reject(err);
+            else resolve(rows);
+          },
+        );
+      });
+    }
+  }
+
+  async getWriterById(id) {
+    if (this.useSequelize) {
+      const writer = await this.Writer.findByPk(id, { raw: true });
+      return writer;
+    } else {
+      return new Promise((resolve, reject) => {
+        this.db.get("SELECT * FROM writers WHERE id = ?", [id], (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        });
+      });
+    }
+  }
+
+  async createWriter(name) {
+    if (this.useSequelize) {
+      const writer = await this.Writer.create({ name });
+      return writer.get({ plain: true });
+    } else {
+      return new Promise((resolve, reject) => {
+        this.db.run(
+          "INSERT INTO writers (name) VALUES (?)",
+          [name],
+          function (err) {
+            if (err) reject(err);
+            else resolve({ id: this.lastID, name });
+          },
+        );
+      });
+    }
+  }
+
   async getAllBooks() {
     if (this.useSequelize) {
       const books = await this.Book.findAll({
-        include: [{ model: this.Genre, attributes: ["id", "name"] }],
+        include: [
+          { model: this.Genre, attributes: ["id", "name"] },
+          { model: this.Writer, attributes: ["id", "name"] },
+        ],
         order: [["created_at", "DESC"]],
       });
       return books.map((book) => {
@@ -352,14 +472,16 @@ class DatabaseAdapter {
         return {
           ...bookData,
           genre_name: bookData.Genre ? bookData.Genre.name : null,
+          writer_name: bookData.Writer ? bookData.Writer.name : null,
         };
       });
     } else {
       return new Promise((resolve, reject) => {
         this.db.all(
-          `SELECT books.*, genres.name as genre_name 
+          `SELECT books.*, genres.name as genre_name, writers.name as writer_name
            FROM books 
            LEFT JOIN genres ON books.genre_id = genres.id 
+           LEFT JOIN writers ON books.writer_id = writers.id
            ORDER BY books.created_at DESC`,
           [],
           (err, rows) => {
@@ -374,20 +496,25 @@ class DatabaseAdapter {
   async getBookById(id) {
     if (this.useSequelize) {
       const book = await this.Book.findByPk(id, {
-        include: [{ model: this.Genre, attributes: ["id", "name"] }],
+        include: [
+          { model: this.Genre, attributes: ["id", "name"] },
+          { model: this.Writer, attributes: ["id", "name"] },
+        ],
       });
       if (!book) return null;
       const bookData = book.get({ plain: true });
       return {
         ...bookData,
         genre_name: bookData.Genre ? bookData.Genre.name : null,
+        writer_name: bookData.Writer ? bookData.Writer.name : null,
       };
     } else {
       return new Promise((resolve, reject) => {
         this.db.get(
-          `SELECT books.*, genres.name as genre_name 
+          `SELECT books.*, genres.name as genre_name, writers.name as writer_name
            FROM books 
            LEFT JOIN genres ON books.genre_id = genres.id 
+           LEFT JOIN writers ON books.writer_id = writers.id
            WHERE books.id = ?`,
           [id],
           (err, row) => {
@@ -399,7 +526,7 @@ class DatabaseAdapter {
     }
   }
 
-  async createBook(title, author, review, imagePath, genreId) {
+  async createBook(title, author, review, imagePath, genreId, writerId) {
     if (this.useSequelize) {
       const book = await this.Book.create({
         title,
@@ -407,13 +534,14 @@ class DatabaseAdapter {
         review,
         image_path: imagePath,
         genre_id: genreId,
+        writer_id: writerId,
       });
       return book.get({ plain: true });
     } else {
       return new Promise((resolve, reject) => {
         this.db.run(
-          "INSERT INTO books (title, author, review, image_path, genre_id) VALUES (?, ?, ?, ?, ?)",
-          [title, author, review, imagePath, genreId],
+          "INSERT INTO books (title, author, review, image_path, genre_id, writer_id) VALUES (?, ?, ?, ?, ?, ?)",
+          [title, author, review, imagePath, genreId, writerId],
           function (err) {
             if (err) reject(err);
             else
@@ -424,6 +552,7 @@ class DatabaseAdapter {
                 review,
                 image_path: imagePath,
                 genre_id: genreId,
+                writer_id: writerId,
               });
           },
         );
@@ -431,10 +560,17 @@ class DatabaseAdapter {
     }
   }
 
-  async updateBook(id, title, author, review, imagePath, genreId) {
+  async updateBook(id, title, author, review, imagePath, genreId, writerId) {
     if (this.useSequelize) {
       await this.Book.update(
-        { title, author, review, image_path: imagePath, genre_id: genreId },
+        {
+          title,
+          author,
+          review,
+          image_path: imagePath,
+          genre_id: genreId,
+          writer_id: writerId,
+        },
         { where: { id } },
       );
       return {
@@ -444,12 +580,13 @@ class DatabaseAdapter {
         review,
         image_path: imagePath,
         genre_id: genreId,
+        writer_id: writerId,
       };
     } else {
       return new Promise((resolve, reject) => {
         this.db.run(
-          "UPDATE books SET title = ?, author = ?, review = ?, image_path = ?, genre_id = ? WHERE id = ?",
-          [title, author, review, imagePath, genreId, id],
+          "UPDATE books SET title = ?, author = ?, review = ?, image_path = ?, genre_id = ?, writer_id = ? WHERE id = ?",
+          [title, author, review, imagePath, genreId, writerId, id],
           (err) => {
             if (err) reject(err);
             else
@@ -460,6 +597,7 @@ class DatabaseAdapter {
                 review,
                 image_path: imagePath,
                 genre_id: genreId,
+                writer_id: writerId,
               });
           },
         );
