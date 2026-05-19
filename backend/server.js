@@ -89,7 +89,30 @@ app.post("/api/genres", async (req, res) => {
     console.log("[BACKEND] Sending response: POST /api/genres", genre);
     res.status(201).json(genre);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("[BACKEND] Error creating genre:", err);
+
+    // Handle unique constraint violation
+    if (
+      err.name === "SequelizeUniqueConstraintError" ||
+      err.message?.includes("UNIQUE constraint failed") ||
+      err.message?.includes("unique constraint") ||
+      err.code === "SQLITE_CONSTRAINT"
+    ) {
+      res.status(409).json({ error: `Genre "${name.trim()}" on jo olemassa` });
+      return;
+    }
+
+    // Handle validation errors
+    if (err.name === "SequelizeValidationError") {
+      res
+        .status(400)
+        .json({
+          error: err.errors?.[0]?.message || "Virheellinen genren nimi",
+        });
+      return;
+    }
+
+    res.status(500).json({ error: err.message || "Virhe genren luomisessa" });
   }
 });
 
@@ -120,7 +143,34 @@ app.post("/api/writers", async (req, res) => {
     console.log("[BACKEND] Sending response: POST /api/writers", writer);
     res.status(201).json(writer);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("[BACKEND] Error creating writer:", err);
+
+    // Handle unique constraint violation
+    if (
+      err.name === "SequelizeUniqueConstraintError" ||
+      err.message?.includes("UNIQUE constraint failed") ||
+      err.message?.includes("unique constraint") ||
+      err.code === "SQLITE_CONSTRAINT"
+    ) {
+      res
+        .status(409)
+        .json({ error: `Kirjailija "${name.trim()}" on jo olemassa` });
+      return;
+    }
+
+    // Handle validation errors
+    if (err.name === "SequelizeValidationError") {
+      res
+        .status(400)
+        .json({
+          error: err.errors?.[0]?.message || "Virheellinen kirjailijan nimi",
+        });
+      return;
+    }
+
+    res
+      .status(500)
+      .json({ error: err.message || "Virhe kirjailijan luomisessa" });
   }
 });
 

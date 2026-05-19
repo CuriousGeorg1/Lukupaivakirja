@@ -9,7 +9,7 @@ const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3001";
 // Validate API URL on load
 if (!process.env.REACT_APP_API_URL) {
   console.warn(
-    "⚠️ REACT_APP_API_URL environment variable is not set! Using fallback:",
+    "REACT_APP_API_URL environment variable is not set! Using fallback:",
     API_URL,
   );
 }
@@ -69,10 +69,7 @@ function App() {
       const errorMsg = `Virhe kategorioiden haussa: ${err.message}`;
       console.error(`[ERROR] ${endpoint}:`, err);
       if (err.message.includes("Failed to fetch") || err.name === "TypeError") {
-        console.error(
-          "❌ Network error - unable to reach backend at:",
-          API_URL,
-        );
+        console.error("Network error - unable to reach backend at:", API_URL);
         console.error(
           "Check: 1) Backend is running, 2) REACT_APP_API_URL is correct, 3) CORS settings",
         );
@@ -94,10 +91,7 @@ function App() {
       const errorMsg = `Virhe kirjailijoiden haussa: ${err.message}`;
       console.error(`[ERROR] ${endpoint}:`, err);
       if (err.message.includes("Failed to fetch") || err.name === "TypeError") {
-        console.error(
-          "❌ Network error - unable to reach backend at:",
-          API_URL,
-        );
+        console.error("Network error - unable to reach backend at:", API_URL);
         console.error(
           "Check: 1) Backend is running, 2) REACT_APP_API_URL is correct, 3) CORS settings",
         );
@@ -147,10 +141,7 @@ function App() {
       const errorMsg = `Virhe kirjojen haussa: ${err.message}`;
       console.error(`[ERROR] ${endpoint}:`, err);
       if (err.message.includes("Failed to fetch") || err.name === "TypeError") {
-        console.error(
-          "❌ Network error - unable to reach backend at:",
-          API_URL,
-        );
+        console.error("Network error - unable to reach backend at:", API_URL);
         console.error(
           "Check: 1) Backend is running, 2) REACT_APP_API_URL is correct, 3) CORS settings",
         );
