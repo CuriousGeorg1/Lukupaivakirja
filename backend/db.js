@@ -10,6 +10,17 @@ let db;
 let sequelize;
 
 async function initializeDatabase() {
+  console.log("\n Database Configuration:");
+  console.log("   NODE_ENV:", process.env.NODE_ENV || "not set");
+  console.log(
+    "   POSTGRESQL_CONNECTION_STRING:",
+    !!process.env.POSTGRESQL_CONNECTION_STRING ? "✓ set" : "✗ not set",
+  );
+  console.log(
+    "   AZURE_SQL_CONNECTION_STRING:",
+    !!process.env.AZURE_SQL_CONNECTION_STRING ? "✓ set" : "✗ not set",
+  );
+
   if (useAzureSQL || usePostgreSQL) {
     // Azure SQL or PostgreSQL with Sequelize
     console.log("Using cloud database (PostgreSQL)");
@@ -42,13 +53,16 @@ async function initializeDatabase() {
           acquire: 30000,
           idle: 10000,
         },
-        logging: false,
+        logging: console.log, // Enable logging to see connection issues
       });
     }
 
     try {
       await sequelize.authenticate();
-      console.log("Database connection established successfully");
+      console.log(" Database connection established successfully");
+      console.log(`   Database: ${sequelize.config.database}`);
+      console.log(`   Host: ${sequelize.config.host}`);
+      console.log(`   Dialect: ${sequelize.config.dialect}`);
 
       // Define Genre model
       const Genre = sequelize.define(
@@ -141,7 +155,25 @@ async function initializeDatabase() {
 
       return { sequelize, Book, Genre };
     } catch (error) {
-      console.error("Unable to connect to database:", error);
+      console.error("Unable to connect to database:");
+      console.error("   Error name:", error.name);
+      console.error("   Error message:", error.message);
+      if (error.parent) {
+        console.error("   Parent error:", error.parent.message);
+      }
+      console.error("\n🔍 Connection string info:");
+      console.error(
+        "   Using POSTGRESQL_CONNECTION_STRING:",
+        !!process.env.POSTGRESQL_CONNECTION_STRING,
+      );
+      if (process.env.POSTGRESQL_CONNECTION_STRING) {
+        // Log sanitized connection string (hide password)
+        const sanitized = process.env.POSTGRESQL_CONNECTION_STRING.replace(
+          /:([^@]+)@/,
+          ":****@",
+        );
+        console.error("   Connection string (sanitized):", sanitized);
+      }
       throw error;
     }
   } else {
@@ -156,7 +188,9 @@ async function initializeDatabase() {
         } else {
           console.log("Connected to SQLite database");
           initializeSQLite()
-            .then(() => resolve({ db, sequelize: null, Book: null, Genre: null }))
+            .then(() =>
+              resolve({ db, sequelize: null, Book: null, Genre: null }),
+            )
             .catch(reject);
         }
       });
@@ -403,7 +437,14 @@ class DatabaseAdapter {
         { title, author, review, image_path: imagePath, genre_id: genreId },
         { where: { id } },
       );
-      return { id, title, author, review, image_path: imagePath, genre_id: genreId };
+      return {
+        id,
+        title,
+        author,
+        review,
+        image_path: imagePath,
+        genre_id: genreId,
+      };
     } else {
       return new Promise((resolve, reject) => {
         this.db.run(
@@ -411,7 +452,15 @@ class DatabaseAdapter {
           [title, author, review, imagePath, genreId, id],
           (err) => {
             if (err) reject(err);
-            else resolve({ id, title, author, review, image_path: imagePath, genre_id: genreId });
+            else
+              resolve({
+                id,
+                title,
+                author,
+                review,
+                image_path: imagePath,
+                genre_id: genreId,
+              });
           },
         );
       });
